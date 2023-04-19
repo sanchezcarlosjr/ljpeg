@@ -10,6 +10,7 @@ import cv2
 import numpy
 
 from ljpeg import __version__
+from ljpeg.utils import get_ics_info
 
 __author__ = "sanchezcarlosjr"
 __copyright__ = "sanchezcarlosjr"
@@ -28,6 +29,32 @@ if not os.path.exists(BIN):
 # >> C:1  N:xx.ljpeg.1  W:1979  H:4349  hf:1  vf:1
 
 PATTERN = re.compile(r"\sC:(\d+)\s+N:(\S+)\s+W:(\d+)\s+H:(\d+)\s")
+
+
+def od_correct(im, ics_info):
+    """
+    Map gray levels to optical density level
+    :param im: image (numpy)
+    :return: optical density image
+    """
+    im_od = numpy.zeros_like(im, dtype=numpy.float64)
+
+    if (ics_info['scan_institution'] == 'MGH') and (ics_info['scanner_type'] == 'DBA'):
+        im_od = (numpy.log10(im + 1) - 4.80662) / -1.07553
+    elif (ics_info['scan_institution'] == 'MGH') \
+            and (ics_info['scanner_type'] == 'HOWTEK'):
+        im_od = (-0.00094568 * im) + 3.789
+    elif (ics_info['scan_institution'] == 'WFU') \
+            and (ics_info['scanner_type'] == 'LUMISYS'):
+        im_od = (im - 4096.99) / -1009.01
+    elif (ics_info['scan_institution'] == 'ISMD') \
+            and (ics_info['scanner_type'] == 'HOWTEK'):
+        im_od = (-0.00099055807612 * im) + 3.96604095240593
+
+    # perform heath noise correction
+    im_od[im_od < 0.05] = 0.05
+    im_od[im_od > 3.0] = 3.0
+    return im_od
 
 
 def read(path):
@@ -75,6 +102,12 @@ def run():
     parser.add_argument("output", nargs=1)
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--visual", action="store_true")
+    parser.add_argument("--ics_info",
+                        action="store_true",
+                        help="display ics info as dict")
+    parser.add_argument("--od_correct",
+                        action="store_true",
+                        help="map gray levels to optical density level")
     parser.add_argument("--scale", type=float)
 
     args = parser.parse_args()
@@ -95,18 +128,14 @@ def run():
 
     W = None
     H = None
-    # find the shape of image
-    for line in open(ics, "r"):
-        line = line.strip().split(" ")
-        if len(line) < 7:
-            continue
-        if line[0] == name:
-            W = int(line[4])
-            H = int(line[2])
-            bps = int(line[6])
-            if bps != 12:
-                _logger.warning("BPS != 12: %s" % path)
-            break
+    ics_info = get_ics_info(ics)
+    W = ics_info[name]['width']
+    H = ics_info[name]['height']
+    if ics_info[name]['bpp'] != 12:
+        _logger.warning("BPS != 12: %s" % path)
+
+    if args.ics_info:
+        print(ics_info)
 
     assert W is not None
     assert H is not None
@@ -118,6 +147,11 @@ def run():
         image = image.reshape((H, W))
 
     raw = image
+
+    if args.od_correct:
+        image = od_correct(image, ics_info)
+        image = numpy.interp(image, (0.0, 4.0), (255, 0))
+        image = image.astype(numpy.uint8)
 
     if args.visual:
         _logger.warning("normalizing color, will lose information")
@@ -131,8 +165,6 @@ def run():
     elif args.scale:
         _logger.error("--scale must be used with --visual")
         sys.exit(1)
-        # image = cv2.equalizeHist(image)
-    # tiff = stem + '.TIFF'
     cv2.imwrite(tiff, image)
 
     if args.verify:

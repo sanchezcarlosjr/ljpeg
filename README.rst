@@ -71,6 +71,10 @@ Convert to jpeg for visualization with down-sizing scale=0.3 (16-bit TIFF is not
 
       ljpeg $(pwd)/C_0029_1.LEFT_CC.LJPEG $(pwd)/output.jpg --visual --scale 0.3
 
+Convert to TIFF and map gray levels to optical density level::
+
+      ljpeg $(pwd)/C_0029_1.LEFT_CC.LJPEG $(pwd)/output.jpg --od-correct
+
 Note that output file can be any format that's supported by OpenCV (which includes all common types). Most file formats only support 8-bit images, so directly saving into such file formats will cause problems. Add "--visual" to normalize color into 8-bit before saving to such file formats.
 
 The Stanford ljpeg code is in public domain and is therefore OK to be included here. I did minor modification to make the code compile under modern Linux.
