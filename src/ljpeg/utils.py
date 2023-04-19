@@ -37,19 +37,8 @@ scanner_map = {
 }
 
 
-def get_ics_info(ics_file_path):
-    """
-    :param ics_file_path: path to ics file
-    :return: dictionary containing all relevant data in ics file
-    """
-    # get letter for scanner type
-    ics_file_name = os.path.basename(ics_file_path)
-    letter = ics_file_name[0]
-
-    # get data from ics file
-    with open(ics_file_path, 'r') as f:
-        lines = list(map(lambda s: s.strip().split(), f.readlines()))
-
+def get_ics_info_from_text(ics_text, letter):
+    lines = list(map(lambda line: line.strip().split(), ics_text))
     # map ics data to values
     ics_dict = {
         'patient_id': get_value(lines, 'filename', 1),
@@ -73,6 +62,22 @@ def get_ics_info(ics_file_path):
         ics_dict[sequence] = sequence_dict
 
     return ics_dict
+
+
+def get_ics_info(ics_file_path):
+    """
+    :param ics_file_path: path to ics file
+    :return: dictionary containing all relevant data in ics file
+    """
+    # get letter for scanner type
+    ics_file_name = os.path.basename(ics_file_path)
+    letter = ics_file_name[0]
+    print(letter)
+
+    # get data from ics file
+    with open(ics_file_path, 'r') as f:
+        return get_ics_info_from_text(f.readlines(), letter)
+    return dict()
 
 
 ####################################################
